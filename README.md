@@ -6,12 +6,12 @@ This repository contains an implementation of a custom **Routing Protocol (RP)**
 ## File Structure
 
 - **rp.h**: Contains header files and definitions for IP, MAC address types, and function prototypes for RP.
-- **RPNode Class**: Manages each node's routing table, packet handling, and broadcast operations.
-- **RPHeader Struct**: Manages packet headers and data payloads.
-
+- **rp.c**: Contains all the function bodies.
 ---
 
 ## Code Overview
+
+Although the code is well commented, and the variable names used are self-explanatory, but I have defined the purpose of all the functions which are present in `rp.c`:
 
 ### `RPNode::split()`
 Splits a string by a specified delimiter and returns the resulting substrings.
@@ -30,7 +30,7 @@ Defines the packet header structure, holding source/destination IPs, and Time-To
 
 ### `RPNode::send_segment()`
 
-Handles packet creation and routing, managing destination lookup and broadcasting to neighbors if the destination is unknown.
+Creates a packet header containing the relevant information. If the destination ip is not in our table, we broadcast it to all neighbours. If the distance is set to be infinite, then we do not do anything (assuming that the algorithm was able to converge in the delay time given). Else, we just send that packet to the next_hop (which is saved from our routing table).
 
 ```cpp
 void RPNode::send_segment(IPAddress dest_ip, const std::vector<uint8_t>& segment);
@@ -38,7 +38,7 @@ void RPNode::send_segment(IPAddress dest_ip, const std::vector<uint8_t>& segment
 
 ### `RPNode::receive_packet()`
 
-Processes received packets by distinguishing between informational packets and data packets, updating routing tables if necessary.
+This function is for receiving packets. There can be two types of packets: data packets or packets with routing table information. Packets with routing information (detected using the header) from neighbours are used to update self routing table. There can be various cases in this, firstly if the packet shared has distance set to `INT_MAX`, then we check if it is the same path which is saved in our table, if yes, then we update our table too (and use the validity from neighbour). This basically signals that one node has got down during the meantime. If the distance is finite, we check if it is a new path. If yes, then we update (in case the distance is smaller). If it is the same path, then we check if it is the same path (if yes, then only we update). The data packets if not meant to us (detected using dst_ip), then we forward it based on our routing table.
 
 ```cpp
 void RPNode::receive_packet(MACAddress src_mac, std::vector<uint8_t> packet, size_t distance);
@@ -49,7 +49,7 @@ void RPNode::receive_packet(MACAddress src_mac, std::vector<uint8_t> packet, siz
 
 ### `RPNode::do_periodic()`
 
-Performs periodic routing updates, decrementing route validity counters and sending updated routing information to neighbors.
+This function is called periodically as the name suggests. In every call it decreases the validity fields of the routing table by 1, collects all the routing table information in a single string and broadcasts that string to all neighbours.
 
 ```cpp
 void RPNode::do_periodic();
@@ -62,7 +62,7 @@ make -j
 ./bin/main rp <netspec file> <msgs file> --delay <delay in ms>
 ```
 
-The delay field is optional, it is set to 50ms by default, this corresponds to the time given to the network to converge after an UP/DOWN/initially.
+The delay field is optional, it is set to 50ms by default, this corresponds to the time given to the network to converge after an UP/DOWN/initially. `rp` stands for routing protocol which I have implemented. Instead of this you can also use `blaster` and `naive`, which are simpler implementations (these two might not work for all testcases).
 
 ---
 
@@ -72,10 +72,13 @@ The delay field is optional, it is set to 50ms by default, this corresponds to t
 - `COUNTER_VALUE`: This sets the validity period of the entries of the routing table for a node. The max validity is set to be 20. This validity is shared across nodes along with the other routing table fields. Also, the unit of measuring this validity is a single call of do_periodic() function.
 
 
-## Error Handling
+## Additional Features
 
-- **Unreachable Routes**: If a route is unreachable, the distance is set to infinity.
-- **TTL Expiry**: Packets are dropped upon reaching a TTL of 0, preventing infinite routing.
+- The algorithm converges under `1ms` for all types of graphs with at most 20 nodes.
+- For a quick convergence, the entire routing table is shared between nodes. `Validity` field is shared too. This helps the neighbours to get information about a down node as soon as possible (starting the validity counter again from max_value will slow down this process).
+- `Split Horizon` is used to solve count to infinity information. Basically, when we receive routing table from our neighbours, we do not check those fields for which the next_hop are ourselves (that path goes through us, so we will better know about that path). This again increases the rate of convergence of the algorithm.
+
+
 
 ## Author
 
