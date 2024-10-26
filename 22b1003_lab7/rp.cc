@@ -3,6 +3,7 @@
 #include "rp.h"
 #include <cassert>
 #include <iostream>
+#include <cstring>
 using namespace std;
 
 #define MAX_TTL 15 // Maximum 15 nodes possible in the network
@@ -54,8 +55,9 @@ void RPNode::send_segment(IPAddress dest_ip, std::vector<uint8_t> const& segment
     }
     else {
         // Present in the map, so we need to send the packet to the next hop
-        if (ip_to_mac.at(dest_ip).first.second == INT_MAX) {
+        if (ip_to_mac.at(dest_ip).first.second == INT32_MAX) {
             // We assume that the algorithm has converged, so a distance of infinity means that the destination is unreachable
+            // broadcast_packet_to_all_neighbors(packet, true);
         }
         else 
         // Present in the map, so we need to send the packet to the next hop
@@ -76,25 +78,25 @@ void RPNode::receive_packet(MACAddress src_mac, std::vector<uint8_t> packet, siz
         // We need to extract the information from the packet
         vector<string> v = split(s, ",,"); // Splitting the string with ",,"
         // We need to iterate over the vector and add the information to the map (ignoring the first element as that is the header of the table)
-        for (int i = 1; i < v.size(); i++)
+        for (int i = 1; i < (int)v.size(); i++)
         {
             if (v[i].size() == 0) 
                 continue; // If the string is empty then no need to do anything
             vector<string> w = split(v[i], ","); // Splitting the string with "," for the information
             // If the IP is not present in the map then we need to add it, else we need to update if the distance is shorter
-            if (stoi(w[0]) == ip || stoi(w[1]) == mac) {
+            if (stoi(w[0]) == (int)ip || stoi(w[1]) == (int)mac) {
                 // We need to ignore the information about ourselves, this is basically split horizon to remove count to infinity problem and helps us in avoiding loops and converging faster
                 continue;
             }
-            if (stoi(w[2]) == INT_MAX) {
+            if (stoi(w[2]) == INT32_MAX) {
                 // Unreachable path information to be handled
                 if (ip_to_mac.find(stoi(w[0])) == ip_to_mac.end()) {
                     // Since the distance is infinite, we do not need to add it to the map
                     continue;
                 }
-                if (ip_to_mac[stoi(w[0])].first.first == stoi(w[1])) {
+                if ((int)ip_to_mac[stoi(w[0])].first.first == stoi(w[1])) {
                     // This information is present in the map and next hop is also same, then we need to update the information in the map
-                    ip_to_mac[stoi(w[0])].first.second = INT_MAX; // Setting the distance to infinity
+                    ip_to_mac[stoi(w[0])].first.second = INT32_MAX; // Setting the distance to infinity
                     ip_to_mac[stoi(w[0])].second = stoi(w[3]); // validity same as what received, for simultaneous convergence
                 }
                 continue; // Can skip the lower part
@@ -108,7 +110,7 @@ void RPNode::receive_packet(MACAddress src_mac, std::vector<uint8_t> packet, siz
                 // If the distance is shorter then we need to update the information
                 ip_to_mac[stoi(w[0])] = { {stoi(w[1]), stoi(w[2])+distance}, stoi(w[3]) };
             }
-            else if (ip_to_mac[stoi(w[0])].first.first == stoi(w[1])) {
+            else if ((int)ip_to_mac[stoi(w[0])].first.first == stoi(w[1])) {
                 // If the next hop is same then we need to update the validity information
                 ip_to_mac[stoi(w[0])].second = stoi(w[3]);
             }
@@ -158,7 +160,7 @@ void RPNode::do_periodic()
         i.second.second--;
         if (i.second.second == 0) {
             // This means the distance is infinite (validity finished)
-            i.second.first.second = INT_MAX;
+            i.second.first.second = INT32_MAX;
         }
         // We will send 4 values: IP, MAC, DISTANCE, VALIDITY
         s += std::to_string(i.first) + "," + std::to_string(mac) + "," + std::to_string(i.second.first.second) + "," + std::to_string(i.second.second) + ",,";
