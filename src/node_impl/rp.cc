@@ -57,7 +57,7 @@ void RPNode::send_segment(IPAddress dest_ip, std::vector<uint8_t> const& segment
         // Present in the map, so we need to send the packet to the next hop
         if (ip_to_mac.at(dest_ip).first.second == INT32_MAX) {
             // We assume that the algorithm has converged, so a distance of infinity means that the destination is unreachable
-            // broadcast_packet_to_all_neighbors(packet, true);
+            broadcast_packet_to_all_neighbors(packet, true);
         }
         else 
         // Present in the map, so we need to send the packet to the next hop
