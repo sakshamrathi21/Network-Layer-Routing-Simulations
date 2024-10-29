@@ -6,7 +6,7 @@
 #include <cstring>
 using namespace std;
 
-#define MAX_TTL 15 // Maximum 15 nodes possible in the network
+#define MAX_TTL 20 // Maximum 15 nodes possible in the network
 #define COUNTER_VALUE 20 // Counter value for the validity of the information
 
 std::vector<std::string> RPNode::split(const std::string& str, const std::string& delimiter) {
